@@ -5,7 +5,7 @@ A super simple FastAPI application that allows students to view and sign up
 for extracurricular activities at Mergington High School.
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 import os
@@ -18,6 +18,24 @@ app = FastAPI(title="Mergington High School API",
 current_dir = Path(__file__).parent
 app.mount("/static", StaticFiles(directory=os.path.join(Path(__file__).parent,
           "static")), name="static")
+
+VALID_ROLES = {"Administrator", "Faculty", "Student"}
+MANAGEMENT_ROLES = {"Administrator", "Faculty"}
+
+
+def get_request_role(request: Request) -> str:
+    role = request.headers.get("X-User-Role", "Student")
+    if role not in VALID_ROLES:
+        raise HTTPException(status_code=403, detail="Invalid role")
+    return role
+
+
+def get_request_email(request: Request) -> str:
+    return request.headers.get("X-User-Email", "").strip().lower()
+
+
+def can_manage_own_enrollment(role: str, actor_email: str, target_email: str) -> bool:
+    return role == "Student" and actor_email == target_email
 
 # In-memory activity database
 activities = {
@@ -88,9 +106,25 @@ def get_activities():
     return activities
 
 
+@app.get("/user-context")
+def get_user_context(request: Request):
+    role = get_request_role(request)
+    return {
+        "role": role,
+        "can_manage_all_enrollments": role in MANAGEMENT_ROLES,
+        "can_manage_own_enrollment": True,
+    }
+
+
 @app.post("/activities/{activity_name}/signup")
-def signup_for_activity(activity_name: str, email: str):
+def signup_for_activity(activity_name: str, email: str, request: Request):
     """Sign up a student for an activity"""
+    role = get_request_role(request)
+    actor_email = get_request_email(request)
+
+    if role == "Student" and not can_manage_own_enrollment(role, actor_email, email):
+        raise HTTPException(status_code=403, detail="Students can only sign up themselves")
+
     # Validate activity exists
     if activity_name not in activities:
         raise HTTPException(status_code=404, detail="Activity not found")
@@ -111,8 +145,14 @@ def signup_for_activity(activity_name: str, email: str):
 
 
 @app.delete("/activities/{activity_name}/unregister")
-def unregister_from_activity(activity_name: str, email: str):
+def unregister_from_activity(activity_name: str, email: str, request: Request):
     """Unregister a student from an activity"""
+    role = get_request_role(request)
+    actor_email = get_request_email(request)
+
+    if role == "Student" and not can_manage_own_enrollment(role, actor_email, email):
+        raise HTTPException(status_code=403, detail="Students can only unregister themselves")
+
     # Validate activity exists
     if activity_name not in activities:
         raise HTTPException(status_code=404, detail="Activity not found")
