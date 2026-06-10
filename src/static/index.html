@@ -12,6 +12,27 @@
       <h2>Extracurricular Activities</h2>
     </header>
 
+    <section id="role-dashboard" class="role-dashboard">
+      <div class="role-summary">
+        <p class="eyebrow">Active dashboard</p>
+        <h3 id="role-title">Student dashboard</h3>
+        <p id="role-description">
+          Students can enroll themselves and manage only their own activity entries.
+        </p>
+      </div>
+      <div class="role-controls">
+        <label for="role">View as</label>
+        <select id="role">
+          <option value="Student">Student</option>
+          <option value="Faculty">Faculty</option>
+          <option value="Administrator">Administrator</option>
+        </select>
+        <p class="role-note">
+          Role changes update what actions are available in the activity cards.
+        </p>
+      </div>
+    </section>
+
     <main>
       <section id="activities-container">
         <h3>Available Activities</h3>
@@ -22,10 +43,10 @@
       </section>
 
       <section id="signup-container">
-        <h3>Sign Up for an Activity</h3>
+        <h3 id="signup-heading">Sign Up for an Activity</h3>
         <form id="signup-form">
           <div class="form-group">
-            <label for="email">Student Email:</label>
+            <label for="email">Current user email:</label>
             <input type="email" id="email" required placeholder="your-email@mergington.edu" />
           </div>
           <div class="form-group">

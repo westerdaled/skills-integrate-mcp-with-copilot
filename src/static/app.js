@@ -3,15 +3,82 @@ document.addEventListener("DOMContentLoaded", () => {
   const activitySelect = document.getElementById("activity");
   const signupForm = document.getElementById("signup-form");
   const messageDiv = document.getElementById("message");
+  const roleSelect = document.getElementById("role");
+  const roleTitle = document.getElementById("role-title");
+  const roleDescription = document.getElementById("role-description");
+  const signupHeading = document.getElementById("signup-heading");
+  const emailInput = document.getElementById("email");
+
+  const roleCopy = {
+    Student: {
+      title: "Student dashboard",
+      description:
+        "Students can enroll themselves and manage only their own activity entries.",
+      signupHeading: "Self-service sign up",
+    },
+    Faculty: {
+      title: "Faculty dashboard",
+      description:
+        "Faculty can enroll students and remove participants when they need to manage activity rosters.",
+      signupHeading: "Faculty enrollment tools",
+    },
+    Administrator: {
+      title: "Administrator dashboard",
+      description:
+        "Administrators can manage all enrollments and oversee the complete activity roster.",
+      signupHeading: "Administrator enrollment tools",
+    },
+  };
+
+  function getCurrentRole() {
+    return localStorage.getItem("selectedRole") || "Student";
+  }
+
+  function getCurrentEmail() {
+    return emailInput.value.trim().toLowerCase();
+  }
+
+  function getRequestHeaders() {
+    return {
+      "X-User-Role": getCurrentRole(),
+      "X-User-Email": getCurrentEmail(),
+    };
+  }
+
+  function updateDashboardCopy() {
+    const role = getCurrentRole();
+    const copy = roleCopy[role] || roleCopy.Student;
+
+    roleTitle.textContent = copy.title;
+    roleDescription.textContent = copy.description;
+    signupHeading.textContent = copy.signupHeading;
+  }
+
+  function canManageParticipant(email) {
+    const role = getCurrentRole();
+    if (role === "Administrator" || role === "Faculty") {
+      return true;
+    }
+
+    return email.toLowerCase() === getCurrentEmail();
+  }
+
+  function syncRoleSelection() {
+    roleSelect.value = getCurrentRole();
+    updateDashboardCopy();
+  }
 
   // Function to fetch activities from API
   async function fetchActivities() {
     try {
-      const response = await fetch("/activities");
+      const response = await fetch("/activities", {
+        headers: getRequestHeaders(),
+      });
       const activities = await response.json();
 
       // Clear loading message
       activitiesList.innerHTML = "";
+      activitySelect.innerHTML = '<option value="">-- Select an activity --</option>';
 
       // Populate activities list
       Object.entries(activities).forEach(([name, details]) => {
@@ -30,7 +97,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 ${details.participants
                   .map(
                     (email) =>
-                      `<li><span class="participant-email">${email}</span><button class="delete-btn" data-activity="${name}" data-email="${email}">❌</button></li>`
+                      `<li><span class="participant-email">${email}</span>${canManageParticipant(email) ? `<button class="delete-btn" data-activity="${name}" data-email="${email}">❌</button>` : ""}</li>`
                   )
                   .join("")}
               </ul>
@@ -80,6 +147,7 @@ document.addEventListener("DOMContentLoaded", () => {
         )}/unregister?email=${encodeURIComponent(email)}`,
         {
           method: "DELETE",
+          headers: getRequestHeaders(),
         }
       );
 
@@ -124,6 +192,7 @@ document.addEventListener("DOMContentLoaded", () => {
         )}/signup?email=${encodeURIComponent(email)}`,
         {
           method: "POST",
+          headers: getRequestHeaders(),
         }
       );
 
@@ -155,6 +224,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  roleSelect.addEventListener("change", () => {
+    localStorage.setItem("selectedRole", roleSelect.value);
+    updateDashboardCopy();
+    fetchActivities();
+  });
+
+  emailInput.addEventListener("input", () => {
+    fetchActivities();
+  });
+
   // Initialize app
+  syncRoleSelection();
   fetchActivities();
 });
